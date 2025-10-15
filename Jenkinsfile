@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    agent any  // Run on any available agent (can be restricted to master if you prefer)
 
     environment {
         DOCKER_IMAGE = "ashokraji/tomcat"
@@ -7,14 +7,13 @@ pipeline {
     }
 
     tools {
-        maven 'maven'
+        maven 'maven'  // Assuming Maven is already configured in Jenkins
     }
 
     stages {
         stage('Checkout Code') {
             steps {
                 echo "🔄 Cloning the repository from GitHub..."
-                // Using the SSH URL with the credentialsId for SSH key authentication
                 git url: 'git@github.com:Ashokraji5/java-maven-app.git', branch: 'main', credentialsId: 'github-ssh-credentials'
             }
         }
@@ -22,14 +21,28 @@ pipeline {
         stage('Build with Maven') {
             steps {
                 echo "🔧 Building the project with Maven..."
-                sh 'mvn clean package -DskipTests -e -X'
+                script {
+                    try {
+                        sh 'mvn clean package -DskipTests -e -X'
+                    } catch (Exception e) {
+                        currentBuild.result = 'FAILURE'
+                        error "Maven build failed!"
+                    }
+                }
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 echo "🐳 Building Docker image..."
-                sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
+                script {
+                    try {
+                        sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
+                    } catch (Exception e) {
+                        currentBuild.result = 'FAILURE'
+                        error "Docker build failed!"
+                    }
+                }
             }
         }
 
@@ -41,10 +54,17 @@ pipeline {
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
-                    sh """
-                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                        docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
-                    """
+                    script {
+                        try {
+                            sh """
+                                echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
+                                docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
+                            """
+                        } catch (Exception e) {
+                            currentBuild.result = 'FAILURE'
+                            error "Docker push failed!"
+                        }
+                    }
                 }
             }
         }
