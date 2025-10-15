@@ -1,5 +1,5 @@
 pipeline {
-    agent any  // Run on any available agent (can be restricted to master if you prefer)
+    agent any
 
     environment {
         DOCKER_IMAGE = "ashokraji/tomcat"
@@ -7,7 +7,7 @@ pipeline {
     }
 
     tools {
-        maven 'maven'  // Assuming Maven is already configured in Jenkins
+        maven 'maven'
     }
 
     stages {
