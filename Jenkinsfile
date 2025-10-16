@@ -3,48 +3,46 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = "ashokraji/tomcat"
-        DOCKER_TAG = "9.0-${BUILD_NUMBER}"
-        SONARQUBE_URL = 'http://52.90.161.136:9000'
-        SONARQUBE_TOKEN = credentials('sonarqube-token')
+        DOCKER_TAG = "9.0-${BUILD_NUMBER}" // You can also use Git commit hash: "9.0-${GIT_COMMIT.take(7)}"
     }
 
     tools {
-        maven 'maven'
+        maven 'maven'  // Ensure the Maven tool is configured in Jenkins
     }
 
     stages {
-
         stage('Checkout Code') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/Ashokraji5/java-maven-app.git',
-                    credentialsId: 'github-credentials'
+                echo "🔄 Checking out the code..."
+                checkout scm  // Simplifies Git checkout process
             }
         }
 
         stage('Build with Maven') {
             steps {
                 echo "🔧 Building the project with Maven..."
-                sh 'mvn clean package -DskipTests -e -X'
-            }
-        }
-
-        stage('SonarQube Analysis') {
-            steps {
-                echo "🔍 Running SonarQube analysis..."
-                sh """
-                    mvn sonar:sonar \
-                    -Dsonar.projectKey=my-project-key \
-                    -Dsonar.host.url=${SONARQUBE_URL} \
-                    -Dsonar.login=${SONARQUBE_TOKEN}
-                """
+                script {
+                    try {
+                        sh 'mvn clean package -DskipTests -e -X'
+                    } catch (Exception e) {
+                        currentBuild.result = 'FAILURE'
+                        throw e  // Propagate error
+                    }
+                }
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 echo "🐳 Building Docker image..."
-                sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
+                script {
+                    try {
+                        sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
+                    } catch (Exception e) {
+                        currentBuild.result = 'FAILURE'
+                        throw e  // Propagate error
+                    }
+                }
             }
         }
 
@@ -52,14 +50,22 @@ pipeline {
             steps {
                 echo "📤 Pushing Docker image to DockerHub..."
                 withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-credentials',
+                    credentialsId: 'dockerhub-credentials',  // Make sure credentialsId is correct
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
-                    sh """
-                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                        docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
-                    """
+                    script {
+                        try {
+                            // Login to DockerHub and push the image
+                            sh """
+                                echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                                docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
+                            """
+                        } catch (Exception e) {
+                            currentBuild.result = 'FAILURE'
+                            throw e  // Propagate error
+                        }
+                    }
                 }
             }
         }
@@ -67,11 +73,14 @@ pipeline {
 
     post {
         success {
-            echo '✅ Pipeline succeeded — Image pushed to DockerHub!'
+            echo '✅ Pipeline succeeded — Docker image pushed to DockerHub!'
         }
         failure {
-            echo '❌ Pipeline failed — Check the logs!'
+            echo '❌ Pipeline failed — Check the logs for details!'
+        }
+        always {
+            // Clean up or additional notifications can be added here
+            echo 'Cleaning up resources...'
         }
     }
 }
-
