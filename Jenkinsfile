@@ -36,22 +36,26 @@ pipeline {
         stage('Deploy to Artifactory') {
             steps {
                 echo "📦 Deploying artifact to Artifactory..."
-                script {
-                    try {
-                        // Replace the artifact details as per your project
-                        sh """
-                            mvn deploy:deploy-file \
-                                -DgroupId=com.example \
-                                -DartifactId=${ARTIFACT_NAME} \
-                                -Dversion=${BUILD_NUMBER} \
-                                -Dpackaging=jar \
-                                -Dfile=target/${ARTIFACT_NAME}-${BUILD_NUMBER}.jar \
-                                -DrepositoryId=artifactory \
-                                -Durl=${ARTIFACTORY_URL}/${ARTIFACTORY_REPO}
-                        """
-                    } catch (Exception e) {
-                        currentBuild.result = 'FAILURE'
-                        throw e  // Propagate error
+                withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_API_KEY')]) {
+                    script {
+                        try {
+                            // Deploy the artifact to Artifactory using Maven deploy plugin
+                            sh """
+                                mvn deploy:deploy-file \
+                                    -DgroupId=com.example \
+                                    -DartifactId=${ARTIFACT_NAME} \
+                                    -Dversion=${BUILD_NUMBER} \
+                                    -Dpackaging=jar \
+                                    -Dfile=target/${ARTIFACT_NAME}-${BUILD_NUMBER}.jar \
+                                    -DrepositoryId=artifactory \
+                                    -Durl=${ARTIFACTORY_URL}/${ARTIFACTORY_REPO} \
+                                    -Dusername=${ARTIFACTORY_USER} \
+                                    -Dpassword=${ARTIFACTORY_API_KEY}
+                            """
+                        } catch (Exception e) {
+                            currentBuild.result = 'FAILURE'
+                            throw e  // Propagate error
+                        }
                     }
                 }
             }
