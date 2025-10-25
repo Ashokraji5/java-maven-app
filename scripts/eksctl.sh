@@ -1,11 +1,29 @@
-#!/bin/bash
-# Script to install eksctl on an instance
-
-# Download and extract the latest eksctl binary
-curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
-
-# Move eksctl to /usr/local/bin to make it executable from anywhere
-sudo mv /tmp/eksctl /usr/local/bin
-
-# Verify installation
-kubectl version --client
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>in.aseemcloud</groupId>
+  <artifactId>01-maven-web-app</artifactId>
+  <packaging>war</packaging>
+  <version>3.0-RELEASE</version>
+  <name>01-maven-cloudaseem-app</name>
+  <url>http://maven.apache.org</url>
+ 
+  <dependencies>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>3.8.1</version>
+    </dependency>
+   
+  </dependencies>
+  <build>
+    <finalName>maven-cloudaseem-app</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-war-plugin</artifactId>
+        <version>3.3.1</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>
