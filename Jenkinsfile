@@ -2,8 +2,9 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "ashokraji/tomcat"
-        DOCKER_TAG = "9.0-${BUILD_NUMBER}" // You can also use Git commit hash: "9.0-${GIT_COMMIT.take(7)}"
+        ARTIFACTORY_REPO = "libs-release-local"  // Change to your actual repository (libs-release-local or libs-snapshot-local)
+        ARTIFACTORY_URL = "https://<your-artifactory-ip>:8081/artifactory"  // Your Artifactory URL
+        ARTIFACT_NAME = "my-artifact"  // Replace with your artifact name
     }
 
     tools {
@@ -32,39 +33,25 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Deploy to Artifactory') {
             steps {
-                echo "🐳 Building Docker image..."
+                echo "📦 Deploying artifact to Artifactory..."
                 script {
                     try {
-                        sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
+                        // Replace the artifact details as per your project
+                        sh """
+                            mvn deploy:deploy-file \
+                                -DgroupId=com.example \
+                                -DartifactId=${ARTIFACT_NAME} \
+                                -Dversion=${BUILD_NUMBER} \
+                                -Dpackaging=jar \
+                                -Dfile=target/${ARTIFACT_NAME}-${BUILD_NUMBER}.jar \
+                                -DrepositoryId=artifactory \
+                                -Durl=${ARTIFACTORY_URL}/${ARTIFACTORY_REPO}
+                        """
                     } catch (Exception e) {
                         currentBuild.result = 'FAILURE'
                         throw e  // Propagate error
-                    }
-                }
-            }
-        }
-
-        stage('Push Docker Image to DockerHub') {
-            steps {
-                echo "📤 Pushing Docker image to DockerHub..."
-                withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-credentials',  // Make sure credentialsId is correct
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
-                    script {
-                        try {
-                            // Login to DockerHub and push the image
-                            sh """
-                                echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                                docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
-                            """
-                        } catch (Exception e) {
-                            currentBuild.result = 'FAILURE'
-                            throw e  // Propagate error
-                        }
                     }
                 }
             }
@@ -73,7 +60,7 @@ pipeline {
 
     post {
         success {
-            echo '✅ Pipeline succeeded — Docker image pushed to DockerHub!'
+            echo '✅ Pipeline succeeded — Artifact deployed to Artifactory!'
         }
         failure {
             echo '❌ Pipeline failed — Check the logs for details!'
