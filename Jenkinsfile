@@ -2,9 +2,8 @@ pipeline {
     agent any
 
     environment {
-        ARTIFACTORY_REPO = "libs-release-local"  // Change to your actual repository (libs-release-local or libs-snapshot-local)
-        ARTIFACTORY_URL = "https://<your-artifactory-ip>:8081/artifactory"  // Your Artifactory URL
-        ARTIFACT_NAME = "my-artifact"  // Replace with your artifact name
+        DOCKER_IMAGE = "ashokraji/tomcat"
+        DOCKER_TAG = "9.0-${BUILD_NUMBER}" // You can also use Git commit hash: "9.0-${GIT_COMMIT.take(7)}"
     }
 
     tools {
@@ -33,24 +32,34 @@ pipeline {
             }
         }
 
-        stage('Deploy to Artifactory') {
+        stage('Build Docker Image') {
             steps {
-                echo "📦 Deploying artifact to Artifactory..."
-                withCredentials([usernamePassword(credentialsId: 'artifactory-credentials', usernameVariable: 'ARTIFACTORY_USER', passwordVariable: 'ARTIFACTORY_API_KEY')]) {
+                echo "🐳 Building Docker image..."
+                script {
+                    try {
+                        sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
+                    } catch (Exception e) {
+                        currentBuild.result = 'FAILURE'
+                        throw e  // Propagate error
+                    }
+                }
+            }
+        }
+
+        stage('Push Docker Image to DockerHub') {
+            steps {
+                echo "📤 Pushing Docker image to DockerHub..."
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-credentials',  // Make sure credentialsId is correct
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
                     script {
                         try {
-                            // Deploy the artifact to Artifactory using Maven deploy plugin
+                            // Login to DockerHub and push the image
                             sh """
-                                mvn deploy:deploy-file \
-                                    -DgroupId=com.example \
-                                    -DartifactId=${ARTIFACT_NAME} \
-                                    -Dversion=${BUILD_NUMBER} \
-                                    -Dpackaging=jar \
-                                    -Dfile=target/${ARTIFACT_NAME}-${BUILD_NUMBER}.jar \
-                                    -DrepositoryId=artifactory \
-                                    -Durl=${ARTIFACTORY_URL}/${ARTIFACTORY_REPO} \
-                                    -Dusername=${ARTIFACTORY_USER} \
-                                    -Dpassword=${ARTIFACTORY_API_KEY}
+                                echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                                docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
                             """
                         } catch (Exception e) {
                             currentBuild.result = 'FAILURE'
@@ -64,7 +73,7 @@ pipeline {
 
     post {
         success {
-            echo '✅ Pipeline succeeded — Artifact deployed to Artifactory!'
+            echo '✅ Pipeline succeeded — Docker image pushed to DockerHub!'
         }
         failure {
             echo '❌ Pipeline failed — Check the logs for details!'
