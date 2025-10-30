@@ -28,12 +28,6 @@
     </plugins>
   </build>
 
-  <!-- Distribution Management -->
-  <distributionManagement>
-    <repository>
-      <id>artifactory</id>
-      <url>http://<your-ec2-ip>:8081/artifactory/maven-local</url> <!-- Use your Artifactory URL -->
-    </repository>
-  </distributionManagement>
+  
 
 </project>
